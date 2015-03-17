@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <title>NextGIS Console</title>
+  <meta charset="windows-1251" />
+  <link href='http://fonts.googleapis.com/css?family=Open+Sans&subset=latin,cyrillic' rel='stylesheet' type='text/css'>
+	
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <script type="text/javascript" src="jQuery.js"></script>
+  <script src="jquery.transit.min.js"></script>
+  <script src="jquery.scrollTo-1.4.3.1-min.js"></script>
+	
+<style>
+html {
+  margin: 0px;
+  padding: 0px;
+}
+body {
+  margin: 0px;
+  padding: 0px;
+  padding-left: 200px;
+  padding-top: 5px;
+  background-color: #111;
+  text-align: left;
+  font-family: monospace;
+  font-size: 10pt;
+  color: #fff;
+}
+
+div[contenteditable="true"] {
+  background-color: #2A2A2A;
+  cursor: text;
+}
+div[contenteditable="true"]:focus {
+  outline: none;
+}
+
+.center {
+  text-align: center;
+}
+.right {
+  float: right;
+}
+.hidden {
+  display: none;
+}
+
+#panel {
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  width: 200px;
+  height: 100%;
+  background-color: #111;
+  font-family: 'Open Sans', sans-serif;
+  text-align: left;
+  z-index: 300;
+}
+  .project {
+    padding-top: 5px;
+  }
+    .new_ticket_but {
+      float: right;
+      margin: 5px;
+      margin-bottom: 10px;
+      width: 35px;
+      height: 35px;
+      background-color: #222;
+      text-align: center;
+      font-size: 18pt;
+    }
+      .new_ticket_but:hover {
+        background-color: #333;
+        cursor: default;
+      }
+    .project_header {
+      padding: 5px;
+      padding-left: 10px;
+      width: 140px;
+      height: 40px;
+    }
+      .project_header:hover {
+        
+      }
+      .project_name {
+        font-weight: bold;
+      }
+      .project_info {
+        font-size: 10pt;
+        color: #ccc;
+      }
+    .project_methods {
+      display: none;
+      padding-left: 10px;
+      padding-top: 0px;
+    }
+      .project_method {
+        display: inline-block;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        padding: 5px;
+        background-color: #222;
+        color: #ccc;
+      }
+      .project_method:hover {
+        background-color: #333;
+        color: #fff;
+        cursor: pointer;
+      }
+.ticket {
+  margin-left: 5px;
+  margin-top: 5px;
+  display: inline-block;
+  vertical-align: top;
+  width: 300px;
+  height: auto;
+  padding-bottom: 10px;
+  border: 1px solid #222;
+  cursor: default;
+}
+  #new_ticket {
+    background-color: #111;
+  }
+  .selected_ticket {
+    border: 1px solid #C97138;
+  }
+    .tab_buts {
+      width: 100%;
+      border-bottom: 0px solid #222;
+      background-color: #2A2A2A;
+    }
+      .tab_but {
+        display: inline-block;
+        vertical-align: top;
+        padding: 5px;
+      }
+        .tab_but:hover {
+          background-color: #222;
+          cursor: pointer;
+        }
+      .selected_tab_but {
+        background-color: #111;
+      }
+        .selected_tab_but:hover {
+          background-color: #111;
+        }
+    .tab {
+      width: 100%;
+    }
+      #second_tab {
+        display: none;
+        padding: 5px;
+        text-align: left;
+      }
+      .tile {
+        padding-top: 5px;
+        padding-bottom: 5px;
+      }
+        .content_title {
+          display: inline-block;
+          vertical-align: top;
+          width: 120px;
+          padding: 5px;
+          padding-right: 10px;
+          overflow: hidden;
+          text-align: right;
+          color: #A4B0C0;
+        }
+        .content_value {
+          display: inline-block;
+          vertical-align: top;
+          padding: 5px;
+          width: 140px;
+          text-align: left;
+          color: #83786E;
+        }
+          .content_list {
+            height: 25px;
+            overflow: hidden;
+            color: #fff;
+          }
+            .content_option, .selected_content_option {
+              width: 150px;
+              height: 16px;
+              padding: 4px;
+              line-height: 20px;
+              background-color: #333;
+              overflow: hidden;
+              word-break: break-all;
+            }
+              .content_option:hover, .selected_content_option:hover {
+                background-color: #444;
+              }
+
+
+
+.active {
+  background-color: #333;
+  color: #fff;
+}
+
+#loading {
+  display: none;
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  height: 100%;
+  width: 100%;
+  background-image: url(loading.gif);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 50px;
+}
+
+</style>
+
+<script>
+
+$(document).ready(function () {
+
+  var api_url = 'http://api-async.gis.to';
+
+  function list_to_string(list) {
+    var string = "";
+    for (var l=0; l<list.length; l++) {
+      string = string + list[l];
+    };
+    return string;
+  };
+
+  function objToDict(object, userprop) {
+    var dict = {
+      'type' : 'dict',
+      'name' : 'param',
+      'inner' : [],
+    };
+    if (userprop != undefined) {
+      for (prop in userprop) {
+        dict[prop] = userprop[prop];
+      };
+    };
+    for (prop in object) {
+      var block = {};
+      block['type'] = 'string';
+      block['name'] = prop;
+      block['inner'] = object[prop];
+      dict['inner'].push(block);
+    };
+    return dict;
+  };
+
+  function get_projects() {
+    $.ajax({
+      type: "GET",
+      url: api_url+'/api/registry/projects',
+      success: function(data){
+        data = JSON.parse(data);
+        machineer_projects(data);
+      },
+      contentType: "application/json",
+    });
+  };
+
+  function get_current_plan(project) {
+    $.ajax({
+      type: "GET",
+      url: api_url+'/api/registry/projects/'+project+'/new/interface',
+      success: function(data){
+        data = JSON.parse(data);
+        machineer_tree[project]['plan'] = data[0];
+      },
+      contentType: "application/json",
+    });
+  };
+
+  function get_methods(project) {
+    $.ajax({
+      type: "GET",
+      url: api_url+'/api/info/schemata/'+project,
+      success: function(data) {
+        data = JSON.parse(data);
+        machineer_methods(project, data);
+      },
+      contentType: "application/json",
+    });
+  };
+  
+  function get_instances(project) {
+    $.ajax({
+      type: "GET",
+      url: api_url+'/api/registry/projects/'+project,
+      success: function(data) {
+        data = JSON.parse(data);
+          machineer_tree[project]['instances'] = {};
+          machineer_instances(project, data);
+      },
+      contentType: "application/json",
+    });
+  };
+
+  function get_tab_buts(project, instance) {
+    $.ajax({
+      type: "GET",
+      url: api_url+'/api/registry/projects/'+project+'/instance/'+instance['InstanceID'],
+      success: function(data) {
+        data = JSON.parse(data);
+        var userprop = {
+          'DOM_ID' : project + instance['InstanceID'],
+          'tab_buts' : data,
+        };
+        var dict = objToDict(instance,userprop);
+        mk_ticket(dict);
+      },
+      contentType: "application/json",
+    });
+  };
+
+  function get_status(status, project, instance) {
+    $.ajax({
+      type: "GET",
+      url: api_url+'/api/registry/projects/'+project+'/instance/'+instance+'/'+status,
+      success: function(data) {
+        data = JSON.parse(data);
+        render_status(data, $("#"+project+instance+" .second_tab"));
+      },
+      contentType: "application/json",
+    });
+  };
+
+  function run_method(method, obj, mode) {
+    var inst = obj;
+    var project = obj['Project'];
+    obj = {
+      'param' : obj,
+    };
+    obj = JSON.stringify(obj);
+    loading(true);
+    $.ajax({
+      'type' : "POST",
+      'url' : api_url+'/api/call/'+project+'/'+method,
+      'data' : obj,
+      'timeout' : 180000,
+      'success' : function(data){
+        loading(false);
+        if (mode == 'new') {
+          lock(false);
+          active(false);
+          methods_display(false);
+          $("#new_ticket").remove();
+          machineer_tree[project]['instances'][inst['InstanceID']] = {
+            'DOM' : project+inst['InstanceID'],
+            'instance' : inst,
+          };
+          var userprop = {
+            'DOM_ID' : project+inst['InstanceID'],
+          };
+          mk_ticket(objToDict(inst,userprop));
+          get_current_plan(project);
+          //Counter
+          var counter = parseInt($("#"+project+" .counter").text());
+          counter++;
+          $("#"+project+" .counter").text(counter);
+        };
+      },
+      'contentType' : "application/json",
+    });
+  };
+
+  function mk_ticket(object) {
+    //alert(JSON.stringify(object));
+    if (object['DOM_ID'] == undefined) {
+      object['DOM_ID'] = 'new_ticket';
+    };
+    var tab_buts = "";
+    if (object['tab_buts'] != undefined) {
+      tab_buts = [
+        '<div class="tab_but main_tab_but selected_tab_but">Main</div>',
+      ];
+      for (var i=0; i<object['tab_buts'].length; i++) {
+        tab_buts.push('<div class="tab_but">'+object['tab_buts'][i]+'</div>');
+      };
+      tab_buts = list_to_string(tab_buts);
+    };
+    var ticket = [];
+    for (var i=0; i<object['inner'].length; i++) {
+      if (object['inner'][i]['inner'] == null) {
+        var val = 'None';
+      } else {
+        var val = object['inner'][i]['inner'];
+      };
+      if (object['inner'][i]['type'] == 'string') {
+        var code = [
+          '<div class="tile"><div class="content_title">',
+          object['inner'][i]['name'],
+          '</div><div class="content_value">',
+          val,
+          '</div></div>',
+        ];
+      } else if (object['inner'][i]['type'] == 'input') {
+        var code = [
+          '<div class="tile"><div class="content_title">',
+          object['inner'][i]['name'],
+          '</div><div class="content_value" contenteditable="true">',
+          val,
+          '</div></div>',
+        ];
+      } else if (object['inner'][i]['type'] == 'radio') {
+        var options = [];
+        for (var a=0; a<object['inner'][i]['inner'].length; a++) {
+          if (object['inner'][i]['inner'][a] == null) {
+            var val = 'None';
+          } else {
+            var val = object['inner'][i]['inner'][a];
+          };
+          if (a == 0) {
+            options.push('<div class="selected_content_option">'+val+'</div>');
+          } else {
+            options.push('<div class="content_option">'+val+'</div>');
+          };
+        };
+        options = list_to_string(options);
+        var code = [
+          '<div class="tile"><div class="content_title">',
+          object['inner'][i]['name'],
+          '</div><div class="content_value"><div class="content_list">',
+          options,
+          '</div></div></div>',
+        ];
+      } else {
+        console.log('unknown dictionary format');
+      };
+      code = list_to_string(code);
+      ticket.push(code);
+    };
+    ticket = list_to_string(ticket);
+    ticket = [
+      '<div class="ticket" id="',
+      object['DOM_ID'],
+      '"><div class="tab_buts">',
+      tab_buts,
+      '</div><div class="tab main_tab">',
+      ticket,
+      '</div><div class="tab second_tab"></div>',
+      '</div>',
+    ];
+    ticket = list_to_string(ticket);
+    $("body").prepend(ticket);
+    $("body").scrollTo(0);
+    normalize();
+  };
+
+  function render_status(status, target) {
+    //alert(JSON.stringify(status));
+    function render(smth) {
+      //alert(typeof smth);
+      if (typeof smth == 'string') {
+        $('<span class="status">'+smth+'</span>').appendTo($(target)).css({ 'paddingLeft' : (level*10)+'px' , 'color' : '#A4B0C0' });
+      } else if (typeof smth == 'number') {
+        $('<span class="status">'+smth+'</span>').appendTo($(target)).css({ 'color' : '#F8E1AA' });
+      } else if (typeof smth == 'boolean') {
+        if (smth == true) {
+          $('<span class="status">'+smth+'</span>').appendTo($(target)).css({ 'fontWeight' : 'bold', 'color' : '#E79E3C' });
+        } else {
+          $('<span class="status">'+smth+'</span>').appendTo($(target)).css({ 'fontWeight' : 'bold' , 'color' : '#DE6546' });
+        };        
+      } else if (typeof smth == 'object') {
+        if (smth.length == undefined) {
+          //alert('hash');
+          level++;
+          for (key in smth) {
+            render(key);
+            if ($(target).children().length > 1) {
+              $('<br>').insertBefore($(target).children().last());
+            };
+            render(smth[key]);
+            $(target).children().last().css({ 'paddingLeft' : 10+'px' });
+            if (typeof smth[key] == 'string') {
+              $(target).children().last().css({ 'color' : '#83786E' });
+            };
+          };
+          level--;
+        } else {
+          for (var i=0; i<smth.length; i++) {
+            render(smth[i]);
+          };
+        };
+      };
+    };
+    var level = 0;
+    render(status);
+    
+
+    
+  };
+
+  function parse_ticket(ticket, prop) {
+    var content_tiles = $(ticket).children(".tab").children(".tile");
+    var object = {};
+    for (var i=0; i<$(content_tiles).length; i++) {
+      var prop_title = $(content_tiles).eq(i).children(".content_title").text();
+      if ($(content_tiles).eq(i).children(".content_value").children(".content_list").length == 0) {
+        var prop_value = $(content_tiles).eq(i).children(".content_value").text();
+      } else {
+        var prop_value = $(content_tiles).eq(i).children(".content_value").children(".content_list").children(".selected_content_option").text();
+      };
+      object[prop_title] = prop_value;
+    };
+    if (prop == undefined) {
+      return object;
+    } else {
+      return object[prop];
+    };
+  };
+
+  //Togglers
+    function methods_display(action, project) {
+      if (action == true) {
+        $(".project_methods").hide();
+        $("#"+project).children(".project_methods").show();
+      } else if (action == false) {
+        $(".project_methods").hide();
+      };
+    };
+
+    function active(action, elem) {
+      if (action == true) {
+        $(elem).addClass('active');
+      } else if (action == false) {
+        $(elem).removeClass('active');
+      };
+    };
+
+    function selection(action, elem) {
+      if (action == true) {
+        $(".ticket").removeClass('selected_ticket');
+        $(elem).addClass('selected_ticket');
+      } else if (action == false) {
+        $(".ticket").removeClass('selected_ticket');
+      };
+    };
+
+    function lock(action, elem) {
+      if (action == true) {
+        if (elem == undefined) {
+          $(".but").addClass('locked');
+        } else {
+          $(elem).addClass('locked');
+        };
+      } else if (action == false) {
+        if (elem == undefined) {
+          $(".but").removeClass('locked');
+        } else {
+          $(elem).removeClass('locked');
+        };
+      };
+    };
+
+    function loading(action) {
+      if (action == true) {
+        $("#loading").fadeIn();
+      } else {
+        $("#loading").fadeOut();
+      };
+    };
+
+    function roll(action, elem) {
+      if (action == true) {
+        $(elem).css({ 'overflow' : 'visible' });
+        $(elem).children().css({ 'position' : 'relative' });
+        $(elem).addClass('rolled');
+      } else if (action == false) {
+        $(elem).css({ 'overflow' : 'hidden' });
+        $(elem).children().css({ 'position' : 'static' });
+        $(elem).removeClass('rolled');
+      };
+    };
+
+  var machineer_tree = {};
+
+  function machineer_init() {
+    get_projects();
+  };
+
+  function machineer_projects(projects) {
+    for (var i=0; i<projects.length; i++) {
+      var tmp = [
+        '<div class="project" id="',
+        projects[i],
+        '"><div class="new_ticket_but but">+</div><div class="project_header"><div class="project_name">',
+        projects[i],
+        '</div><div class="project_info"></div></div>',
+        '<div class="project_methods"></div>',
+        '</div>',
+      ];
+      tmp = list_to_string(tmp);
+      $("#panel").append(tmp);
+      machineer_tree[projects[i]] = {};
+      get_current_plan(projects[i]);
+      get_methods(projects[i]);
+      get_instances(projects[i]);
+    };
+  };
+
+  function machineer_methods(project, methods) {
+    machineer_tree[project]['methods'] = methods;
+    for (var i=0; i<methods.length; i++) {
+      $("#"+project).children(".project_methods").append('<div class="project_method but">'+methods[i]+'</div>');
+    };
+  };
+
+  function machineer_instances(project, instances) {
+    $("#"+project+" .project_info").html("<span class='counter'>"+instances.length+"</span> instances");
+    for (var i=0; i<instances.length; i++) {
+      machineer_tree[project]['instances'][instances[i]['InstanceID']] = {
+        'DOM' : project + instances[i]['InstanceID'],
+        'instance' : instances[i],
+      };
+      get_tab_buts(project, instances[i]);
+    };
+  };
+
+  function normalize() {
+    var ticket_width = 300;
+    var total_width = $("body").width();
+    var num = Math.floor(total_width/ticket_width);
+    var new_ticket_width = (total_width/num)-((num+1)*5/num)-2;
+    $(".ticket").css({ 'width' : new_ticket_width+'px' });
+    $(".content_title").css({ 'width' : new_ticket_width/2-10-10-10+'px' });
+    $(".content_value").css({ 'width' : new_ticket_width/2-10+'px' });
+    $(".content_list, .content_option, .selected_content_option").css({ 'width' : new_ticket_width/2+'px' });
+    $(".content_list").parent().css({ 'padding' : '0px' });
+  };
+  
+  machineer_init();
+
+  $(document).on('click','.tab', function(){
+    if ($(this).parent().hasClass("selected_ticket") == true) {
+      if ($(this).parent().attr('id') != 'new_ticket') {
+        selection(false);
+        methods_display(false);
+      };
+    } else {
+      if ($(".selected_ticket").attr('id') != 'new_ticket') {
+        selection(true, $(this).parent());
+        methods_display(true, parse_ticket($(this).parent(),'Project'));
+      };
+    };
+  });
+
+  $(document).on('click','.tab_but', function(){
+    var ticket = $(this).parent().parent();
+    if ($(this).hasClass("main_tab_but") == false) {
+      $(ticket).children(".tab").css({ 'display' : 'none' });
+      $(ticket).children(".second_tab").css({ 'display' : 'block' }).empty();
+      get_status($(this).text(), parse_ticket($(ticket),'Project'), parse_ticket($(ticket),'InstanceID'));
+    } else {
+      $(ticket).children(".main_tab").css({ 'display' : 'block' });
+      $(ticket).children(".second_tab").css({ 'display' : 'none' });
+    };
+    $(this).siblings().removeClass("selected_tab_but");
+    $(this).addClass("selected_tab_but");
+  });
+
+  $(document).on('click','.new_ticket_but', function(){
+    if ($(this).hasClass("locked") == false) {
+      if ($(this).hasClass("active") == false) {
+        //
+        var project = $(this).next(".project_header").children(".project_name").text();
+        var object = machineer_tree[project]['plan'];
+        mk_ticket(object);
+        //
+        selection(true, $("#new_ticket"));
+        active(true, $(this));
+        methods_display(true, project);
+        lock(true, $(".new_ticket_but"));
+        lock(false, $(this));
+      } else {
+        $("#new_ticket").remove();
+        active(false, $(this));
+        methods_display(false);
+        lock(false);
+      };
+    };
+  });
+
+  $(document).on('click','.project_method', function(){
+    if ($(this).hasClass("locked") == false) {
+      var method = $(this).text();
+      var object = parse_ticket($(".selected_ticket").eq(0));
+      active(true, $(this));
+      lock(true);
+      if ($(".selected_ticket").attr('id') == 'new_ticket') {
+        run_method(method, object, 'new');
+      } else {
+        run_method(method, object);
+      };
+    };
+  });
+
+  $(document).on('click','.content_list', function(){
+    if ($(this).hasClass("rolled") == false) {
+      roll(true, $(this));
+    } else {
+      roll(false, $(this));
+    };
+  });
+
+  $(document).on('click','.content_option', function(){
+    var tmp = $(this).text();
+    $(this).text($(this).parent().children(".selected_content_option").text());
+    $(this).parent().children(".selected_content_option").text(tmp);
+  });
+
+  $(window).resize(function(){ 
+    normalize();
+  });
+
+});
+
+</script>
+
+</head>
+	
+<body>
+
+  <div id="panel"></div>
+  <div id="loading"></div>
+
+</body>
+</html>
