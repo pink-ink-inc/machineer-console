@@ -330,43 +330,58 @@ $(document).ready(function () {
   function run_method(method, obj, mode) {
     var inst = obj;
     var project = obj['Project'];
-    obj = {
-      'param' : obj,
+    var valid_check = true;
+    for (var i=0; i<machineer_tree[project]['plan']['inner'].length; i++) {
+     if (inst[machineer_tree[project]['plan']['inner'][i]['name']] == undefined) {
+      valid_check = false;
+     };
     };
-    obj = JSON.stringify(obj);
-    loading(true);
-    $.ajax({
-      'type' : "POST",
-      'url' : api_url+'/api/call/'+project+'/'+method,
-      'data' : obj,
-      'timeout' : 180000,
-      'success' : function(data){
-        loading(false);
-        if (mode == 'new') {
-          lock(false);
-          active(false);
-          methods_display(false);
-          $("#new_ticket").remove();
-          machineer_tree[project]['instances'][inst['InstanceID']] = {
-            'DOM' : project+inst['InstanceID'],
-            'instance' : inst,
-          };
-          var userprop = {
-            'DOM_ID' : project+inst['InstanceID'],
-          };
-          mk_ticket(objToDict(inst,userprop));
-          get_current_plan(project);
-          //Counter
-          var counter = parseInt($("#"+project+" .counter").text());
-          counter++;
-          $("#"+project+" .counter").text(counter);
-        };
-      },
-      'contentType' : "application/json",
-    });
+    if (valid_check == true) {
+     obj = {
+      'param' : obj,
+     };
+     obj = JSON.stringify(obj);
+     loading(true);
+     $.ajax({
+       'type' : "POST",
+       'url' : api_url+'/api/call/'+project+'/'+method,
+       'data' : obj,
+       'timeout' : 180000,
+       'success' : function(data){
+         loading(false);
+         lock(false);
+         active(false);
+         if (mode == 'new') {
+           methods_display(false);
+           $("#new_ticket").remove();
+           machineer_tree[project]['instances'][inst['InstanceID']] = {
+             'DOM' : project+inst['InstanceID'],
+             'instance' : inst,
+           };
+           var userprop = {
+             'DOM_ID' : project+inst['InstanceID'],
+           };
+           mk_ticket(objToDict(inst,userprop));
+           get_current_plan(project);
+           //Counter
+           var counter = parseInt($("#"+project+" .counter").text());
+           counter++;
+           $("#"+project+" .counter").text(counter);
+         } else {
+           alert(data); 
+         };
+       },
+       'contentType' : "application/json",
+     });
+    } else {
+     alert('Invalid ticket: methods can be applied.');
+     loading(false);          
+     lock(false);            
+     active(false);
+    };
   };
 
-  function mk_ticket(object) {
+   function mk_ticket(object) {
     //alert(JSON.stringify(object));
     if (object['DOM_ID'] == undefined) {
       object['DOM_ID'] = 'new_ticket';
@@ -445,7 +460,6 @@ $(document).ready(function () {
     ];
     ticket = list_to_string(ticket);
     $("body").prepend(ticket);
-    $("body").scrollTo(0);
     normalize();
   };
 
@@ -487,14 +501,11 @@ $(document).ready(function () {
       };
     };
     var level = 0;
-    render(status);
-    
-
-    
+    render(status);   
   };
 
   function parse_ticket(ticket, prop) {
-    var content_tiles = $(ticket).children(".tab").children(".tile");
+    var content_tiles = $(ticket).children(".main_tab").children(".tile");
     var object = {};
     for (var i=0; i<$(content_tiles).length; i++) {
       var prop_title = $(content_tiles).eq(i).children(".content_title").text();
@@ -526,7 +537,11 @@ $(document).ready(function () {
       if (action == true) {
         $(elem).addClass('active');
       } else if (action == false) {
-        $(elem).removeClass('active');
+        if (elem != undefined) {
+         $(elem).removeClass('active');
+        } else {
+         $(".but").removeClass('active');
+        };
       };
     };
 
@@ -664,7 +679,6 @@ $(document).ready(function () {
   $(document).on('click','.new_ticket_but', function(){
     if ($(this).hasClass("locked") == false) {
       if ($(this).hasClass("active") == false) {
-        //
         var project = $(this).next(".project_header").children(".project_name").text();
         var object = machineer_tree[project]['plan'];
         mk_ticket(object);
